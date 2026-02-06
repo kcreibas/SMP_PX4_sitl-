@@ -597,8 +597,9 @@ int Smp::set_baudrate(int fd, unsigned baud)
 	return 0;
 }
 
-// Read incoming bytes into the RX buffer.
-// 수신 바이트를 RX 버퍼에 누적합니다. @@@@
+// Transport RX:
+// 포트(TCP/UDP/Serial)에서 바이트를 읽어 _rx_buf에 누적합니다.
+// 파싱/검증은 process_rx_buffer()에서 수행합니다.
 void Smp::handle_rx()
 {
 	uint8_t buf[64];
@@ -657,8 +658,10 @@ void Smp::handle_rx()
 	process_rx_buffer();
 }
 
-// Parse frames, validate CRC, publish uORB, and handle CMD.
-// 프레임 파싱 → CRC 검증 → uORB 퍼블리시 → CMD 처리. @@@@
+// RX 파이프라인:
+// 1) sync(0xA5) 위치 탐색 → 2) 길이 확인 → 3) CRC16 검증
+// 4) smp_in(uORB) 게시 → 5) COMMAND_*를 vehicle_command로 변환
+// 새 RX 메시지 추가는 이 함수에 분기 추가 (msg_id/len 기준).
 void Smp::process_rx_buffer()
 {
 	// SMP RX handlers (conceptual FW function names):
@@ -751,7 +754,10 @@ void Smp::process_rx_buffer()
 			if (_echo_enabled) {
 				send_echo(sysid, compid, seq);
 			}
-//smp command do short long #755 ~ 843
+			// COMMAND_* payload 구조 요약:
+			// - COMMAND_DO   (len=7):  [cmd_id][p1(float)][tgt_sys][tgt_comp]
+			// - COMMAND_SHORT(len=19): [cmd_id][p1..p4(float)][tgt_sys][tgt_comp]
+			// - COMMAND_LONG (len=31): [cmd_id][p1..p7(float)][tgt_sys][tgt_comp]
 			if ((msg_id == kMsgCommandDo && payload_len == 7) ||
 			    (msg_id == kMsgCommandShort && payload_len == 19) ||
 			    (msg_id == kMsgCommandLong && payload_len == 31)) {
@@ -842,6 +848,8 @@ void Smp::process_rx_buffer()
 				cmd.from_external = true;
 				_vehicle_command_pub.publish(cmd);
 
+				// 로컬 ACK: SMP 자체에서 즉시 응답(선택 사항).
+				// PX4 내부 처리 결과와는 별개일 수 있습니다.
 				if (_local_ack) {
 					uint8_t ack_payload[3] {};
 					size_t ack_off = 0;
@@ -864,8 +872,8 @@ void Smp::process_rx_buffer()
 	}
 }
 
-// Send queued smp_out frames to the serial port.
-// smp_out 큐를 시리얼 포트로 송신합니다.
+// smp_out로 들어온 프레임을 실제 링크로 전송합니다.
+// 외부 모듈이 SMP 프레임을 직접 만들어 보낼 때 사용하는 TX 경로입니다.
 void Smp::handle_tx()
 {
 	if (_fd < 0) {
@@ -1031,8 +1039,9 @@ static inline int32_t clamp_i32(int64_t v)
 	return (int32_t)v;
 }
 
-// Collect uORB topics and emit SMP telemetry frames.
-// uORB 토픽을 수집해 SMP 텔레메트리 프레임을 전송합니다. @@@@
+// TX 파이프라인:
+// uORB 토픽을 수집해 SMP 텔레메트리 프레임을 주기적으로 전송합니다.
+// 새 TX 메시지를 추가하려면 이 함수에 payload 구성 + send_msg() 호출을 추가하세요.
 void Smp::handle_telemetry()
 {
 	// SMP TX builders (conceptual FW function names):
@@ -1457,8 +1466,9 @@ void Smp::handle_telemetry()
 	}
 }
 
-// Build and send a SMP frame with the given payload.
-// 주어진 payload로 SMP 프레임을 만들어 전송합니다. @@@@
+// send_msg():
+// SMP 프레임(sync+header+payload+crc16)을 구성해 송신합니다.
+// 텔레메트리/ACK/테스트 송신 등 공통 TX 함수입니다.
 void Smp::send_msg(uint8_t msg_id, const uint8_t *payload, uint8_t payload_len)
 {
 	if (_fd < 0 || payload_len > kMaxPayload) {

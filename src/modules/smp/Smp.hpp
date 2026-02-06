@@ -85,6 +85,18 @@ private:
 	static constexpr size_t kMaxPayload = 31;
 	static constexpr size_t kMinFrame = 1 + 1 + 1 + 1 + 1 + 1 + 2;
 	static constexpr size_t kMaxFrame = 1 + 1 + 1 + 1 + 1 + 1 + kMaxPayload + 2;
+	// SMP 프레임 개요:
+	// [0]=0xA5 | sysid | compid | seq | msgid | len | payload | crc16(LSB,MSB)
+	// payload 최대 31바이트(현재 COMMAND_LONG 기준).
+	// 새 메시지를 추가하려면:
+	// 1) 아래 kMsg* 정의 추가
+	// 2) RX면 process_rx_buffer()에 분기 추가
+	// 3) TX면 handle_telemetry()에 송신 로직 추가
+	// 4) docs/smp_protocol.md 문서 업데이트
+	// Message IDs (방향/용도 요약)
+	// TX: FC->GCS 텔레메트리 (HEARTBEAT/VEH_DATA/...)
+	// RX: GCS->FC 명령 (COMMAND_*)
+	// ACK: FC->GCS 명령 결과 (COMMAND_ACK)
 	static constexpr uint8_t kMsgHeartbeat = 0x01;
 	static constexpr uint8_t kMsgVehData = 0x02;
 	static constexpr uint8_t kMsgSysStatus = 0x10;
@@ -98,6 +110,7 @@ private:
 	static constexpr uint8_t kMsgCommandDo = 0x91;
 	static constexpr uint8_t kMsgCommandShort = 0x92;
 	static constexpr uint8_t kMsgCommandLong = 0x93;
+	// PARAM_SET/GET: 현재 설계만 존재 (미구현). 구현 시 process_rx_buffer()에 연결.
 	static constexpr uint8_t kMsgParamSet = 0xB0;
 	static constexpr uint8_t kMsgParamGet = 0xB1;
 
@@ -120,6 +133,9 @@ private:
 	bool _udp_peer_valid{false};
 #endif
 
+	// uORB 브리지:
+	// smp_in  : 수신 프레임(raw) 게시(디버그/모니터용)
+	// smp_out : 외부 모듈이 송신 요청한 프레임을 받아 전송
 	uORB::Publication<smp_in_s> _in_pub{ORB_ID(smp_in)};
 	uORB::Subscription _out_sub{ORB_ID(smp_out)};
 	uORB::Publication<vehicle_command_s> _vehicle_command_pub{ORB_ID(vehicle_command)};
@@ -174,6 +190,7 @@ private:
 	uint8_t _ack_payload_len{3};
 	uint8_t _ack_payload[16]{'A', 'C', 'K'};
 
+	// VEH_DATA에 사용할 PX4 파라미터 핸들(값이 바뀌면 텔레메트리에 반영)
 	param_t _param_smp_max_speed{PARAM_INVALID};
 	param_t _param_smp_max_alt{PARAM_INVALID};
 	param_t _param_smp_endur{PARAM_INVALID};
