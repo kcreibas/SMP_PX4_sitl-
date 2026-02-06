@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2024 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,16 +31,10 @@
 #
 ############################################################################
 
-add_subdirectory(airframes)
-
-px4_add_romfs_files(
-	px4-rc.smp
-	px4-rc.mavlink
-	px4-rc.simulator
-	px4-rc.gzsim
-	px4-rc.jmavsim
-	px4-rc.mavlinksim
-	px4-rc.sihsim
-	rc.replay
-	rcS
-)
+px4_add_module(
+	MODULE modules__smp
+	MAIN smp
+	SRCS
+		Smp.cpp
+		smp_main.cpp
+	)

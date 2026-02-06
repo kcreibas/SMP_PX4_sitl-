@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Board extras
+#------------------------------------------------------------------------------
+
+# SMP autostart (USB CDC). Disable USB MAVLink to avoid port conflicts.
+smp start -d /dev/ttyACM0 -b 115200 -e

@@ -9,3 +9,10 @@ param set-default BAT2_V_DIV 18.1
 
 param set-default BAT1_A_PER_V 36.367515152
 param set-default BAT2_A_PER_V 36.367515152
+
+# Keep USB CDC enabled so SMP can use /dev/ttyACM0.
+param set-default SYS_USB_AUTO 1
+param set-default MAV_0_CONFIG 0
+param set-default MAV_1_CONFIG 0
+param set-default MAV_2_CONFIG 0
+

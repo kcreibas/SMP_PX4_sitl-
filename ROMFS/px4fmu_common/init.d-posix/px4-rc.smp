@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Optional SMP startup for SITL (posix).
+# Enable by exporting PX4_SMP_DEV to a serial device (e.g. /dev/pts/3).
+#
+
+if [ -n "$PX4_SMP_DEV" ]
+then
+	SMP_ARGS=""
+
+	if [ -n "$PX4_SMP_BAUD" ]
+	then
+		SMP_ARGS="$SMP_ARGS -b $PX4_SMP_BAUD"
+	fi
+
+	if [ -n "$PX4_SMP_ECHO" ]
+	then
+		SMP_ARGS="$SMP_ARGS -e"
+	fi
+
+	if [ -n "$PX4_SMP_ACK_MSGID" ]
+	then
+		SMP_ARGS="$SMP_ARGS -a $PX4_SMP_ACK_MSGID"
+	fi
+
+	if [ -n "$PX4_SMP_ACK_PAYLOAD" ]
+	then
+		SMP_ARGS="$SMP_ARGS -p $PX4_SMP_ACK_PAYLOAD"
+	fi
+
+	if [ -n "$PX4_SMP_SYSID" ]
+	then
+		SMP_ARGS="$SMP_ARGS -s $PX4_SMP_SYSID"
+	fi
+
+	if [ -n "$PX4_SMP_COMPID" ]
+	then
+		SMP_ARGS="$SMP_ARGS -c $PX4_SMP_COMPID"
+	fi
+
+	echo "SMP: starting on $PX4_SMP_DEV $SMP_ARGS"
+	smp start -d "$PX4_SMP_DEV" $SMP_ARGS
+fi

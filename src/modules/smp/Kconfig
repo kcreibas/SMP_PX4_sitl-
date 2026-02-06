@@ -1,0 +1,12 @@
+menuconfig MODULES_SMP
+	bool "smp"
+	default n
+	---help---
+		Enable support for smp
+
+menuconfig USER_SMP
+	bool "smp running as userspace module"
+	default n
+	depends on BOARD_PROTECTED && MODULES_SMP
+	---help---
+		Put smp in userspace memory

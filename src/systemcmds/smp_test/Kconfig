@@ -1,0 +1,5 @@
+menuconfig SYSTEMCMDS_SMP_TEST
+	bool "smp_test"
+	default n
+	---help---
+		Enable support for smp_test

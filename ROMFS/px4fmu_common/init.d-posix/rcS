@@ -359,6 +359,9 @@ fi
 #user defined mavlink streams for instances can be in PATH
 . px4-rc.mavlink
 
+# Optional SMP startup for SITL (enabled via PX4_SMP_DEV)
+. px4-rc.smp
+
 # execute autostart post script if any
 [ -e "$autostart_file".post ] && . "$autostart_file".post
 
