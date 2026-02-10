@@ -218,6 +218,7 @@ private:
 	static void append_u8(uint8_t *buf, size_t &offset, uint8_t value);
 	static void append_f32(uint8_t *buf, size_t &offset, float value);
 	static float read_f32(const uint8_t *buf);
+	static int32_t read_i32(const uint8_t *buf);
 	static double read_f64(const uint8_t *buf);
 	uint16_t crc16_ccitt(const uint8_t *data, size_t len) const;
 	static bool parse_device(const char *device, LinkMode &mode, char *host, size_t host_len, uint16_t &port);

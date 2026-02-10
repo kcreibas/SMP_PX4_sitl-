@@ -78,12 +78,12 @@ void init_once()
 void init(int argc, char *argv[], const char *app_name)
 {
 	printf("\n");
-	printf("______  __   __    ___ \n");
-	printf("| ___ \\ \\ \\ / /   /   |\n");
-	printf("| |_/ /  \\ V /   / /| |\n");
-	printf("|  __/   /   \\  / /_| |\n");
-	printf("| |     / /^\\ \\ \\___  |\n");
-	printf("\\_|     \\/   \\/     |_/\n");
+	printf("######   ##   #    # #####   ####   ###### #    #\n");
+	printf("#       #  #  ##  ## #    # #    #  #      #    #\n");
+	printf("#####  ###### # ## # #####  #    #  #####  # ## #\n");
+	printf("     # #    # #    # #    # #    #  #      ##  ##\n");
+	printf("#####  #    # #    # #####   ####   #      #    #\n");
+	printf("                                                  \n");
 	printf("\n");
 	printf("%s starting.\n", app_name);
 	printf("\n");

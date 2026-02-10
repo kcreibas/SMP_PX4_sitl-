@@ -67,6 +67,7 @@ static inline bool is_would_block(int err)
 
 static constexpr uint8_t kSmpCmdArmDisarm = 1;
 static constexpr uint8_t kSmpCmdSetMode = 2;
+static constexpr uint8_t kSmpCmdTakeoff = 3;
 static constexpr uint8_t kSmpCmdGoto = 50;
 static constexpr uint8_t kModeCustomEnabled = 1; // MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
 
@@ -122,6 +123,8 @@ static inline uint8_t map_mav_cmd_to_smp(uint16_t mav_cmd)
 		return kSmpCmdArmDisarm;
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_MODE:
 		return kSmpCmdSetMode;
+	case vehicle_command_s::VEHICLE_CMD_NAV_TAKEOFF:
+		return kSmpCmdTakeoff;
 	case vehicle_command_s::VEHICLE_CMD_DO_REPOSITION:
 		return kSmpCmdGoto;
 	default:
@@ -289,9 +292,9 @@ UART bridge for a simple custom binary protocol (SMP v1).
 Device: /dev/ttyXXX (serial) or tcp://:port (server) or tcp://host:port (client, POSIX).
         udp://:port (server) or udp://host:port (client, POSIX).
 Frame: sync(0xA5), sysid, comid, seq, msgid(u8), len(u8), payload, crc16.
-COMMAND_DO(0x91) payload: u8 cmd + f32 p1 + u8 target_sys + u8 target_comp.
-COMMAND_SHORT(0x92) payload: u8 cmd + f32 p1..p4 + u8 target_sys + u8 target_comp.
-COMMAND_LONG(0x93) payload: u8 cmd + f32 p1..p7 + u8 target_sys + u8 target_comp.
+COMMAND_DO(0x91) payload: u8 cmd + i32 p1 + u8 target_sys + u8 target_comp.
+COMMAND_SHORT(0x92) payload: u8 cmd + i32 p1..p4 + u8 target_sys + u8 target_comp.
+COMMAND_LONG(0x93) payload: u8 cmd + i32 p1..p7 + u8 target_sys + u8 target_comp.
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("smp", "module");
@@ -755,9 +758,9 @@ void Smp::process_rx_buffer()
 				send_echo(sysid, compid, seq);
 			}
 			// COMMAND_* payload 구조 요약:
-			// - COMMAND_DO   (len=7):  [cmd_id][p1(float)][tgt_sys][tgt_comp]
-			// - COMMAND_SHORT(len=19): [cmd_id][p1..p4(float)][tgt_sys][tgt_comp]
-			// - COMMAND_LONG (len=31): [cmd_id][p1..p7(float)][tgt_sys][tgt_comp]
+			// - COMMAND_DO   (len=7):  [cmd_id][p1(int32)][tgt_sys][tgt_comp]
+			// - COMMAND_SHORT(len=19): [cmd_id][p1..p4(int32)][tgt_sys][tgt_comp]
+			// - COMMAND_LONG (len=31): [cmd_id][p1..p7(int32)][tgt_sys][tgt_comp]
 			if ((msg_id == kMsgCommandDo && payload_len == 7) ||
 			    (msg_id == kMsgCommandShort && payload_len == 19) ||
 			    (msg_id == kMsgCommandLong && payload_len == 31)) {
@@ -776,34 +779,79 @@ void Smp::process_rx_buffer()
 				cmd.param6 = NAN;
 				cmd.param7 = NAN;
 
+				int32_t p1_i32 = 0;
+				int32_t p2_i32 = 0;
+				int32_t p3_i32 = 0;
+				int32_t p4_i32 = 0;
+				int32_t p5_i32 = 0;
+				int32_t p6_i32 = 0;
+				int32_t p7_i32 = 0;
+				bool have_p1 = false;
+				bool have_p2 = false;
+				bool have_p3 = false;
+
 				uint8_t target_system = 0;
 				uint8_t target_component = 0;
 
 				if (msg_id == kMsgCommandDo) {
-					cmd.param1 = read_f32(&payload[1]);
+					p1_i32 = read_i32(&payload[1]);
+					cmd.param1 = (float)p1_i32;
+					have_p1 = true;
 					target_system = payload[5];
 					target_component = payload[6];
 				} else if (msg_id == kMsgCommandShort) {
-					cmd.param1 = read_f32(&payload[1]);
-					cmd.param2 = read_f32(&payload[5]);
-					cmd.param3 = read_f32(&payload[9]);
-					cmd.param4 = read_f32(&payload[13]);
+					p1_i32 = read_i32(&payload[1]);
+					p2_i32 = read_i32(&payload[5]);
+					p3_i32 = read_i32(&payload[9]);
+					p4_i32 = read_i32(&payload[13]);
+					cmd.param1 = (float)p1_i32;
+					cmd.param2 = (float)p2_i32;
+					cmd.param3 = (float)p3_i32;
+					cmd.param4 = (float)p4_i32;
+					have_p1 = true;
+					have_p2 = true;
+					have_p3 = true;
 					target_system = payload[17];
 					target_component = payload[18];
 				} else if (msg_id == kMsgCommandLong) {
-					cmd.param1 = read_f32(&payload[1]);
-					cmd.param2 = read_f32(&payload[5]);
-					cmd.param3 = read_f32(&payload[9]);
-					cmd.param4 = read_f32(&payload[13]);
-					cmd.param5 = read_f32(&payload[17]);
-					cmd.param6 = read_f32(&payload[21]);
-					cmd.param7 = read_f32(&payload[25]);
+					p1_i32 = read_i32(&payload[1]);
+					p2_i32 = read_i32(&payload[5]);
+					p3_i32 = read_i32(&payload[9]);
+					p4_i32 = read_i32(&payload[13]);
+					p5_i32 = read_i32(&payload[17]);
+					p6_i32 = read_i32(&payload[21]);
+					p7_i32 = read_i32(&payload[25]);
+					cmd.param1 = (float)p1_i32;
+					cmd.param2 = (float)p2_i32;
+					cmd.param3 = (float)p3_i32;
+					cmd.param4 = (float)p4_i32;
+					cmd.param5 = (float)p5_i32;
+					cmd.param6 = (float)p6_i32;
+					cmd.param7 = (float)p7_i32;
+					have_p1 = true;
+					have_p2 = true;
+					have_p3 = true;
 					target_system = payload[29];
 					target_component = payload[30];
 				}
 
 				if (smp_cmd == kSmpCmdArmDisarm) {
+					int32_t arm_v = have_p1 ? p1_i32 : 0;
+					if (arm_v < 0) {
+						arm_v = 0;
+					}
+
+					const bool arm = (arm_v & 0x01) != 0;
+					const bool force = (arm_v & 0x02) != 0;
+
 					cmd.command = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+					cmd.param1 = arm ? 1.0f : 0.0f;
+					cmd.param2 = force ? 21196.0f : 0.0f;
+					cmd.param3 = NAN;
+					cmd.param4 = NAN;
+					cmd.param5 = NAN;
+					cmd.param6 = NAN;
+					cmd.param7 = NAN;
 				} else if (smp_cmd == kSmpCmdSetMode) {
 					int mode_i = (int)lroundf(cmd.param1);
 					if (mode_i < 0) {
@@ -824,17 +872,31 @@ void Smp::process_rx_buffer()
 					cmd.param5 = NAN;
 					cmd.param6 = NAN;
 					cmd.param7 = NAN;
+				} else if (smp_cmd == kSmpCmdTakeoff) {
+					const float rel_alt_m = have_p1 ? (float)p1_i32 : NAN;
+					float abs_alt_m = rel_alt_m;
+					if (_have_vehicle_global_pos && std::isfinite(_vehicle_global_pos.alt) && std::isfinite(rel_alt_m)) {
+						abs_alt_m = (float)_vehicle_global_pos.alt + rel_alt_m;
+					}
+
+					cmd.command = vehicle_command_s::VEHICLE_CMD_NAV_TAKEOFF;
+					cmd.param1 = NAN;
+					cmd.param2 = NAN;
+					cmd.param3 = NAN;
+					cmd.param4 = NAN;
+					cmd.param5 = NAN;
+					cmd.param6 = NAN;
+					cmd.param7 = abs_alt_m;
 				} else if (smp_cmd == kSmpCmdGoto) {
-					const float lat = cmd.param1;
-					const float lon = cmd.param2;
-					const float alt = cmd.param3;
-					const float yaw = cmd.param4;
+					const float lat = have_p1 ? (float)((double)p1_i32 / 1e7) : NAN;
+					const float lon = have_p2 ? (float)((double)p2_i32 / 1e7) : NAN;
+					const float alt = have_p3 ? (float)((double)p3_i32 / 1000.0) : NAN;
 
 					cmd.command = vehicle_command_s::VEHICLE_CMD_DO_REPOSITION;
 					cmd.param1 = NAN;
 					cmd.param2 = 1.0f; // change_mode_flags bit0=1 (request mode switch)
 					cmd.param3 = NAN;
-					cmd.param4 = yaw;
+					cmd.param4 = NAN; // yaw unused
 					cmd.param5 = lat;
 					cmd.param6 = lon;
 					cmd.param7 = alt;
@@ -1602,6 +1664,15 @@ void Smp::append_f32(uint8_t *buf, size_t &offset, float value)
 float Smp::read_f32(const uint8_t *buf)
 {
 	float value = 0.0f;
+	memcpy(&value, buf, sizeof(value));
+	return value;
+}
+
+// Read little-endian i32 from payload buffer.
+// payload 버퍼에서 리틀엔디언 i32를 읽습니다.
+int32_t Smp::read_i32(const uint8_t *buf)
+{
+	int32_t value = 0;
 	memcpy(&value, buf, sizeof(value));
 	return value;
 }

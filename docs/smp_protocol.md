@@ -108,16 +108,22 @@ SMP commands are converted to PX4 `vehicle_command` (MAVLink-equivalent) and
 | --- | --- | --- |
 | 1 | ARM/DISARM | `MAV_CMD_COMPONENT_ARM_DISARM` |
 | 2 | SET_MODE | `MAV_CMD_DO_SET_MODE` |
+| 3 | TAKEOFF | `MAV_CMD_NAV_TAKEOFF` |
 | 50 | GOTO | `MAV_CMD_DO_REPOSITION` |
 
 Parameter mapping:
-- COMMAND_DO (msgid 0x91): `cmd_id` + `p1` -> `param1`, `target_sys/comp` -> target.
-- COMMAND_SHORT (msgid 0x92): `p1..p4` -> `param1..param4`.
-- COMMAND_LONG (msgid 0x93): `p1..p7` -> `param1..param7`.
-- ARM/DISARM: `p1=1.0` arm, `p1=0.0` disarm.
+- COMMAND_DO (msgid 0x91): `cmd_id` + `p1(int32)` -> `param1`, `target_sys/comp` -> target.
+- COMMAND_SHORT (msgid 0x92): `p1..p4(int32)` -> `param1..param4`.
+- COMMAND_LONG (msgid 0x93): `p1..p7(int32)` -> `param1..param7`.
+- ARM/DISARM: `p1` encodes action/force: `0=disarm`, `1=arm`, `2=force disarm`, `3=force arm`
+  (`bit0=action`, `bit1=force`). This maps to `param1` (0/1) and `param2=21196` when force.
 - SET_MODE: `p1` (0..8) mapped to PX4 custom main/sub modes, then
   `param1=1` (custom enabled), `param2=main_mode`, `param3=sub_mode`.
-- GOTO: uses `param5=lat`, `param6=lon`, `param7=alt`, `param4=yaw` (param1..3 NaN).
+- TAKEOFF: `p1=rel_alt_m` (meters, int32). If global altitude is available,
+  `param7 = current_alt_m + p1` (absolute AMSL); otherwise `param7 = p1`.
+- GOTO: uses `p1=lat_e7`, `p2=lon_e7`, `p3=alt_mm` and **`p4 unused`**.
+  These are converted to `param5=lat_deg`, `param6=lon_deg`, `param7=alt_m`.
+  `param4` is set to `NAN` (yaw unused).
   `param2` is fixed to `1.0` (change_mode_flags bit0=1) so PX4 accepts
   `MAV_CMD_DO_REPOSITION` and switches to AUTO_LOITER.
 
@@ -341,30 +347,30 @@ result enum:
 ### 0x91 COMMAND_DO
 Payload:
 - cmd_id: uint8
-- p1: float32
+- p1: int32
 - target_system: uint8
 - target_component: uint8
 
 ### 0x92 COMMAND_SHORT
 Payload:
 - cmd_id: uint8
-- p1: float32
-- p2: float32
-- p3: float32
-- p4: float32
+- p1: int32
+- p2: int32
+- p3: int32
+- p4: int32
 - target_system: uint8
 - target_component: uint8
 
 ### 0x93 COMMAND_LONG
 Payload:
 - cmd_id: uint8
-- p1: float32
-- p2: float32
-- p3: float32
-- p4: float32
-- p5: float32
-- p6: float32
-- p7: float32
+- p1: int32
+- p2: int32
+- p3: int32
+- p4: int32
+- p5: int32
+- p6: int32
+- p7: int32
 - target_system: uint8
 - target_component: uint8
 
